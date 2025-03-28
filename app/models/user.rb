@@ -4,43 +4,47 @@
 #
 # Table name: users
 #
-#  id                        :bigint(8)        not null, primary key
-#  age_verified_at           :datetime
-#  approved                  :boolean          default(TRUE), not null
-#  chosen_languages          :string           is an Array
-#  confirmation_sent_at      :datetime
-#  confirmation_token        :string
-#  confirmed_at              :datetime
-#  consumed_timestep         :integer
-#  current_sign_in_at        :datetime
-#  disabled                  :boolean          default(FALSE), not null
-#  email                     :string           default(""), not null
-#  encrypted_otp_secret      :string
-#  encrypted_otp_secret_iv   :string
-#  encrypted_otp_secret_salt :string
-#  encrypted_password        :string           default(""), not null
-#  last_emailed_at           :datetime
-#  last_sign_in_at           :datetime
-#  locale                    :string
-#  otp_backup_codes          :string           is an Array
-#  otp_required_for_login    :boolean          default(FALSE), not null
-#  otp_secret                :string
-#  reset_password_sent_at    :datetime
-#  reset_password_token      :string
-#  settings                  :text
-#  sign_in_count             :integer          default(0), not null
-#  sign_in_token             :string
-#  sign_in_token_sent_at     :datetime
-#  sign_up_ip                :inet
-#  time_zone                 :string
-#  unconfirmed_email         :string
-#  created_at                :datetime         not null
-#  updated_at                :datetime         not null
-#  account_id                :bigint(8)        not null
-#  created_by_application_id :bigint(8)
-#  invite_id                 :bigint(8)
-#  role_id                   :bigint(8)
-#  webauthn_id               :string
+#  id                            :bigint(8)        not null, primary key
+#  age_verified_at               :datetime
+#  approved                      :boolean          default(TRUE), not null
+#  bluesky_cross_posting_enabled :boolean          default(FALSE), not null
+#  bluesky_did                   :string
+#  bluesky_handle                :string
+#  chosen_languages              :string           is an Array
+#  confirmation_sent_at          :datetime
+#  confirmation_token            :string
+#  confirmed_at                  :datetime
+#  consumed_timestep             :integer
+#  current_sign_in_at            :datetime
+#  disabled                      :boolean          default(FALSE), not null
+#  email                         :string           default(""), not null
+#  encrypted_bluesky_password    :string
+#  encrypted_otp_secret          :string
+#  encrypted_otp_secret_iv       :string
+#  encrypted_otp_secret_salt     :string
+#  encrypted_password            :string           default(""), not null
+#  last_emailed_at               :datetime
+#  last_sign_in_at               :datetime
+#  locale                        :string
+#  otp_backup_codes              :string           is an Array
+#  otp_required_for_login        :boolean          default(FALSE), not null
+#  otp_secret                    :string
+#  reset_password_sent_at        :datetime
+#  reset_password_token          :string
+#  settings                      :text
+#  sign_in_count                 :integer          default(0), not null
+#  sign_in_token                 :string
+#  sign_in_token_sent_at         :datetime
+#  sign_up_ip                    :inet
+#  time_zone                     :string
+#  unconfirmed_email             :string
+#  created_at                    :datetime         not null
+#  updated_at                    :datetime         not null
+#  account_id                    :bigint(8)        not null
+#  created_by_application_id     :bigint(8)
+#  invite_id                     :bigint(8)
+#  role_id                       :bigint(8)
+#  webauthn_id                   :string
 #
 
 class User < ApplicationRecord
@@ -82,6 +86,8 @@ class User < ApplicationRecord
 
   devise :registerable, :recoverable, :validatable,
          :confirmable
+
+  encrypts :encrypted_bluesky_password
 
   belongs_to :account, inverse_of: :user
   belongs_to :invite, counter_cache: :uses, optional: true

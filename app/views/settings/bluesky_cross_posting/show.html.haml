@@ -1,0 +1,15 @@
+- content_for :page_title do
+  = t('settings.bluesky_cross_posting')
+
+- content_for :heading_actions do
+  = button_tag t('generic.save_changes'), class: 'button', form: 'edit_bluesky_cross_posting_enabled'
+
+= simple_form_for current_user, url: settings_bluesky_cross_posting_path, html: { id: :edit_bluesky_cross_posting_enabled } do |f|
+  = render 'shared/error_messages', object: current_user
+
+  .fields-group
+    = f.input :bluesky_cross_posting_enabled,
+              as: :boolean,
+              wrapper: :with_label,
+              label: I18n.t('simple_form.labels.defaults.setting_bluesky_cross_posting_enabled'),
+              hint: I18n.t('simple_form.hints.defaults.setting_bluesky_cross_posting_enabled')

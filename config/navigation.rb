@@ -32,6 +32,7 @@ SimpleNavigation::Configuration.run do |navigation|
       s.item :password, safe_join([material_symbol('lock'), t('settings.account_settings')]), edit_user_registration_path, highlights_on: %r{^/auth|/settings/delete|/settings/migration|/settings/aliases|/settings/login_activities|^/disputes}
       s.item :two_factor_authentication, safe_join([material_symbol('safety_check'), t('settings.two_factor_authentication')]), settings_two_factor_authentication_methods_path, highlights_on: %r{/settings/two_factor_authentication|/settings/otp_authentication|/settings/security_keys}
       s.item :authorized_apps, safe_join([material_symbol('list_alt'), t('settings.authorized_apps')]), oauth_authorized_applications_path, if: -> { !self_destruct }
+      s.item :bluesky_cross_posting, safe_join([material_symbol('cloud'), t('settings.bluesky_cross_posting')]), settings_bluesky_cross_posting_path, if: -> { current_user.functional? && !self_destruct }
     end
 
     n.item :data, safe_join([material_symbol('cloud_sync'), t('settings.import_and_export')]), settings_export_path do |s|

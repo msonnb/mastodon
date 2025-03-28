@@ -58,6 +58,8 @@ namespace :settings do
     end
   end
 
+  resource :bluesky_cross_posting, only: [:show, :update], controller: :bluesky_cross_posting
+
   resource :delete, only: [:show, :destroy]
   resource :migration, only: [:show, :create]
   resource :verification, only: [:show, :update]
