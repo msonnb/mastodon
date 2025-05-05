@@ -140,6 +140,7 @@ class User < ApplicationRecord
   before_create :set_age_verified_at
   after_commit :send_pending_devise_notifications
   after_create_commit :trigger_webhooks
+  after_update_commit :create_bluesky_account, if: :bluesky_cross_posting_enabled_first_time?
 
   normalizes :locale, with: ->(locale) { I18n.available_locales.exclude?(locale.to_sym) ? nil : locale }
   normalizes :time_zone, with: ->(time_zone) { ActiveSupport::TimeZone[time_zone].nil? ? nil : time_zone }
@@ -560,5 +561,13 @@ class User < ApplicationRecord
 
   def trigger_webhooks
     TriggerWebhookWorker.perform_async('account.created', 'Account', account_id)
+  end
+
+  def bluesky_cross_posting_enabled_first_time?
+    saved_change_to_bluesky_cross_posting_enabled? && bluesky_cross_posting_enabled? && bluesky_did.blank?
+  end
+
+  def create_bluesky_account
+    BlueskyAccountCreationWorker.perform_async(id)
   end
 end
