@@ -135,6 +135,8 @@ class Status < ApplicationRecord
   after_create_commit :store_uri, if: :local?
   after_create_commit :update_statistics, if: :local?
 
+  after_create_commit :cross_post_to_bluesky
+
   before_validation :prepare_contents, if: :local?
   before_validation :set_reblog
   before_validation :set_conversation
@@ -471,5 +473,12 @@ class Status < ApplicationRecord
 
   def trigger_update_webhooks
     TriggerWebhookWorker.perform_async('status.updated', 'Status', id) if local?
+  end
+
+  def cross_post_to_bluesky
+    user = account.user
+    is_status_eligible = visibility == 'public' && reply? == false && reblog? == false
+
+    BlueskyPostWorker.perform_async(id) if user&.bluesky_cross_posting_enabled? && user.bluesky_did.present? && is_status_eligible
   end
 end
