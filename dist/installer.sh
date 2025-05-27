@@ -530,24 +530,6 @@ while true; do
   fi
 done
 
-# choice for elastic search service
-while true; do
-  read -p "Do you want elasticsearch service (yes/no): " choice
-  case "$choice" in
-    [Yy]*)
-      es_status=true
-      break
-      ;;
-    [Nn]*)
-      es_status=false
-      break
-      ;;
-    *)
-      echo "Invalid input. Please enter 'yes' or 'no'."
-      ;;
-  esac
-done
-
 while true; do
   read -p "Enter SMTP SERVER: " smtp_server
   if [ -n "$smtp_server" ]; then
@@ -613,21 +595,6 @@ if [ -z ${db_name} ] ; then
 fi
 echo "Your db name is ${db_name}"
 
-if [ "$es_status" = true ]; then
-	read -p "Enter the ELASTIC SEARCH USER (Default: elastic): " es_user
-fi
-if [ -z ${es_user} ] ; then
-  es_user=elastic
-fi
-e_temp_password="pass_$(random_string 16)"
-if [ "$es_status" = true ]; then
-	read -p "Enter the ELASTIC SEARCH PASSWORD (Default: ${e_temp_password}): " es_password
-fi
-if [ -z ${es_password} ] ; then
-  es_password=${e_temp_password}
-fi
-
-
 # assign work directory
 work_dir=~/mastodon
 # Remove old work directory if present
@@ -662,11 +629,11 @@ DB_USER=${db_user}
 DB_NAME=${db_name}
 DB_PASS=${db_password}
 DB_PORT=5432
-ES_ENABLED=${es_status}
+ES_ENABLED=false
 ES_HOST=es
 ES_PORT=9200
-ES_USER=${es_user}
-ES_PASS=${es_password}
+ES_USER=<YOUR_ELASTICSEARCH_USER>
+ES_PASS=<YOUR_ELASTICSEARCH_PASSWORD>
 SECRET_KEY_BASE=${secret1}
 OTP_SECRET=${secret2}
 ${active_record_encryption_keys}
@@ -690,16 +657,6 @@ mastodon_env
 
 #  start the PostgreSQL container
 docker compose -f ${work_dir}/docker-compose.yml up -d db
-
-#  Start the Elasticsearch container and make data directory.
-if [ "$es_status" = true ]; then
- sudo mkdir -p ${work_dir}/elasticsearch
- sudo chown -R 1000:1000 ${work_dir}/elasticsearch
- docker compose -f ${work_dir}/docker-compose.yml up -d es
-fi
-
-# increase the max_map_count
-sudo sysctl -w vm.max_map_count=262144
 
 # Make Database setup 
 docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake db:setup
@@ -760,7 +717,4 @@ echo "0 0 * * * ${work_dir}/auto-cleanup.sh" | crontab -
 echo "Congratulations your setup is done"
 echo "Admin email:  ${admin_email}  and  password: ${admin_password}"
 echo "Database user:  ${db_user}  ,  password: ${db_password}  and name ${db_name}"
-if [ "$es_status" = true ]; then
-	echo "Elasticsearch user name:  ${es_user}  and  password: ${es_password}"
-fi
 echo "The Mastodon instance can be accessed on https://${domain_name}"
