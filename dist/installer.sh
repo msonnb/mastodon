@@ -484,8 +484,8 @@ echo "########################################################################"
 # Pause the script for 3 seconds to allow the user to read the warning
 sleep 3
 
-COMPOSE_URL="https://raw.githubusercontent.com/msonnberger/mastodon/docker-compose.yml"
-NGINX_CONFIG_URL="https://raw.githubusercontent.com/msonnberger/mastodon/dist/nginx.conf"
+COMPOSE_URL="https://raw.githubusercontent.com/msonnberger/mastodon/main/docker-compose.yml"
+NGINX_CONFIG_URL="https://raw.githubusercontent.com/msonnberger/mastodon/main/dist/nginx.conf"
 
 # Function to generate a random character
 function random_char() {
