@@ -9,11 +9,14 @@ services:
     networks:
       - internal_network
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      test: ['CMD', 'pg_isready', '-U', '${DB_USER}', '-d', '${DB_NAME}']
     volumes:
       - ./postgres14:/var/lib/postgresql/data
     environment:
-      - 'POSTGRES_HOST_AUTH_METHOD=trust'
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+    env_file: .env.production
 
   redis:
     restart: always
