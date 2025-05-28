@@ -79,7 +79,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_started
       # - es
     volumes:
       - /var/www/mastodon/public/system:/mastodon/public/system
