@@ -616,7 +616,7 @@ curl \
 #Generate secret keys
 secret1=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
 secret2=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
-active_record_encryption_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/rails db:encryption:init)
+active_record_encryption_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/rails db:encryption:init | tail -n 3)
 vapid_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake mastodon:webpush:generate_vapid_key)
 
 # Add content in the .env.production
