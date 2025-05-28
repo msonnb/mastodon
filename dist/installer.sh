@@ -614,8 +614,8 @@ curl \
 	"${COMPOSE_URL}"
 
 #Generate secret keys
-secret1=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake secret)
-secret2=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake secret)
+secret1=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
+secret2=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
 active_record_encryption_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/rails db:encryption:init)
 vapid_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake mastodon:webpush:generate_vapid_key)
 
@@ -659,7 +659,7 @@ mastodon_env
 docker compose -f ${work_dir}/docker-compose.yml up -d db
 
 # Make Database setup 
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake db:setup
+docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails db:setup
 
 # Start Mastadon application.
 docker compose -f ${work_dir}/docker-compose.yml up -d
