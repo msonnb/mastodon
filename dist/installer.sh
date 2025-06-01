@@ -451,149 +451,38 @@ To see pdsadmin commands, run "pdsadmin help"
 INSTALLER_MESSAGE
 
 
+# MASTODON INSTALLER
 
+COMPOSE_URL="https://raw.githubusercontent.com/msonnberger/mastodon/refs/heads/main/docker-compose.yml"
+NGINX_CONFIG_URL="https://raw.githubusercontent.com/msonnberger/mastodon/refs/heads/main/dist/nginx.conf"
 
+function prompt_for_input {
+  local prompt="$1"
+  local var_name="$2"
+	local empty_var_error="$3"
+  local input_value=""
 
-#!/bin/bash
-# Display the script header, providing basic information about the script.
-echo "######################################################################"
-echo "#                                                                    #"
-echo "#           				 Mastodon Installation Script            				 #"
-echo "#                                                                    #"
-echo "#              Created by Honeytree Technologies, LLC                #"
-echo "#                        www.honeytreetech.com                       #"
-echo "#                                                                    #"
-echo "#                     Adapted by Martin Sonnberger					         #"
-echo "#                    github.com/msonnberger/mastodon                 #"
-echo "#                                                                    #"
-echo "######################################################################"
-
-# Pause the script for 3 seconds to allow the user to read the header
-sleep 3
-
-# Display more detailed information about what each option does
-echo "########################################################################"
-echo "##### THIS IS IMPORTANT, PLEASE READ CAREFULLY BEFORE SELECTING    #####"
-echo "#####                                                              #####"
-echo "#####  This will install Mastodon on fresh server.                 #####"
-echo "#####                                                              #####"
-echo "##### Installing on an operating Mastodon server will wipe data.   #####"
-echo "#####                                                              #####"
-echo "########################################################################"
-
-# Pause the script for 3 seconds to allow the user to read the warning
-sleep 3
-
-COMPOSE_URL="https://raw.githubusercontent.com/msonnberger/mastodon/main/docker-compose.yml"
-NGINX_CONFIG_URL="https://raw.githubusercontent.com/msonnberger/mastodon/main/dist/nginx.conf"
-
-# Function to generate a random character
-function random_char() {
-  local chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-  echo -n "${chars:RANDOM%${#chars}:1}"
-}
-
-# Function to generate a random string of a given length
-function random_string() {
-  local length=$1
-  local result=""
-  for ((i = 0; i < length; i++)); do
-    result="${result}$(random_char)"
+  while true; do
+    read -p "$prompt" input_value
+    if [ -n "$input_value" ]; then
+      # Assign the input value to the variable specified by var_name
+      # Using 'eval' to dynamically set the variable
+      eval "$var_name=\"\$input_value\""
+      break
+    else
+      echo "$empty_var_error"
+    fi
   done
-  echo -n "$result"
 }
 
-while true; do
-  read -p "Enter admin user name: " admin_user
-  if [ -n "$admin_user" ]; then
-    break
-  else
-    echo "Admin name cannot be empty. Please enter admin name."
-  fi
-done
-
-while true; do
-  read -p "Enter admin email: " admin_email
-  if [ -n "$admin_email" ]; then
-    break
-  else
-    echo "Admin email cannot be empty. Please enter admin email."
-  fi
-done
-
-while true; do
-  read -p "Enter valid domain name: " domain_name
-  if [ -n "$domain_name" ]; then
-    break
-  else
-    echo "Domain cannot be empty. Please enter domain."
-  fi
-done
-
-while true; do
-  read -p "Enter SMTP SERVER: " smtp_server
-  if [ -n "$smtp_server" ]; then
-    break
-  else
-    echo "SMTP SERVER cannot be empty. Please enter smtp server."
-  fi
-done
-
-while true; do
-  read -p "Enter SMTP PORT: " smtp_port
-  if [ -n "$smtp_port" ]; then
-
-    break
-  else
-    echo "SMTP PORT cannot be empty. Please enter smtp port."
-  fi
-done
-
-while true; do
-  read -p "Enter SMTP LOGIN: " smtp_login
-  if [ -n "$smtp_login" ]; then
-    break
-  else
-    echo "SMTP LOGIN cannot be empty. Please enter smtp_login."
-  fi
-done
-
-while true; do
-  read -p "Enter SMTP_PASSWORD: " smtp_password
-  if [ -n "$smtp_password" ]; then
-    break
-  else
-    echo "SMTP_PASSWORD cannot be empty. Please enter smtp password."
-  fi
-done
-
-while true; do
-  read -p "Enter SMTP FROM ADDRESS: " smtp_from_address
-  if [ -n "$smtp_from_address" ]; then
-    break
-  else
-    echo "SMTP FROM ADDRESS cannot be empty. Please enter smtp from address."
-  fi
-done
-
-
-read -p "Enter the DB USER NAME (Default: postgres): " db_user
-if [ -z ${db_user} ] ; then
-  db_user=postgres
-fi
-
-temp_password="pass_$(random_string 16)"
-read -p "Enter the DB PASSWORD (Default: ${temp_password}): " db_password
-if [ -z ${db_password} ] ; then
-  db_password=${temp_password}
-fi
-echo "your db password is ${db_password}"
-temp_db="masto_$(random_string 8)"
-read -p "Enter the DB NAME (Default: ${temp_db}): " db_name
-if [ -z ${db_name} ] ; then
-  db_name=${temp_db}
-fi
-echo "Your db name is ${db_name}"
+prompt_for_input "Enter admin user name: " admin_user "Admin name cannot be empty. Please enter admin name."
+prompt_for_input "Enter admin email: " admin_email "Admin email cannot be empty. Please enter admin email."
+prompt_for_input "Enter valid domain name: " domain_name "Domain cannot be empty. Please enter domain."
+prompt_for_input "Enter SMTP SERVER: " smtp_server "SMTP SERVER cannot be empty. Please enter smtp server."
+prompt_for_input "Enter SMTP PORT: " smtp_port "SMTP PORT cannot be empty. Please enter smtp port."
+prompt_for_input "Enter SMTP LOGIN: " smtp_login "SMTP LOGIN cannot be empty. Please enter smtp_login."
+prompt_for_input "Enter SMTP_PASSWORD: " smtp_password "SMTP_PASSWORD cannot be empty. Please enter smtp password."
+prompt_for_input "Enter SMTP FROM ADDRESS: " smtp_from_address "SMTP FROM ADDRESS cannot be empty. Please enter smtp from address."
 
 # assign work directory
 work_dir=~/mastodon
@@ -605,7 +494,7 @@ mkdir ${work_dir}
 # create blank a enviromental files for Mastodon
 touch ${work_dir}/.env.production
 
-# Download docker-compose file
+echo "* Downloading docker-compose.yml file"
 curl \
 	--silent \
 	--show-error \
@@ -613,21 +502,21 @@ curl \
 	--output ${work_dir}/docker-compose.yml \
 	"${COMPOSE_URL}"
 
-#Generate secret keys
+echo "* Generating secret keys"
 secret1=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
 secret2=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
 active_record_encryption_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/rails db:encryption:init | tail -n 3)
 vapid_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake mastodon:webpush:generate_vapid_key)
 
-# Add content in the .env.production
+echo "* Creating .env.production file"
 cat <<mastodon_env >> ${work_dir}/.env.production
 LOCAL_DOMAIN=${domain_name}
 REDIS_HOST=redis
 REDIS_PORT=6379
 DB_HOST=db
-DB_USER=${db_user}
-DB_NAME=${db_name}
-DB_PASS=${db_password}
+DB_USER=postgres
+DB_NAME=mastodon_production
+DB_PASS=
 DB_PORT=5432
 ES_ENABLED=false
 ES_HOST=es
@@ -655,27 +544,28 @@ ATPROTO_PDS_DOMAIN=${PDS_HOSTNAME}
 ATPROTO_PDS_ADMIN_PASS=${PDS_ADMIN_PASSWORD}
 mastodon_env
 
-#  start the PostgreSQL container
-docker compose -f ${work_dir}/docker-compose.yml up -d db
-
-# Make Database setup 
+echo "* Setting up database"
 docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails db:setup
 
-# Start Mastadon application.
+echo "* Starting Mastodon application"
 docker compose -f ${work_dir}/docker-compose.yml up -d
 
 # Setting up nginx 
 
 if nginx -v &>/dev/null; then
-  echo "Nginx is already install installed"
+  echo "* Nginx is already install installed"
   rm /etc/nginx/sites-available/mastodon
   rm /etc/nginx/sites-enabled/mastodon
 else
+	echo "* Installing Nginx"
   sudo apt-get update
   sudo apt-get install -y nginx
 fi
 
+rm -f /etc/nginx/sites-enabled/default
+
 # Download the nginx file for the application 
+echo "* Downloading Nginx configuration file"
 curl \
 	--silent \
 	--show-error \
@@ -689,32 +579,14 @@ sudo ln -s /etc/nginx/sites-available/mastodon /etc/nginx/sites-enabled/
 #  Reload the nginx service.
 sudo systemctl restart nginx
 
-# Enable toolctl toolctl in docker container
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl
-
 # Generate Admin password
-admin_password=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts create ${admin_user} --email ${admin_email} --confirmed --approved --role Owner | awk '/password:/{print }')
+echo "* Creating admin user"
+admin_password=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts create ${admin_user} --email ${admin_email} --confirmed --role Owner | awk '/password:/{print }')
 
-# Remove Media files
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl media remove
-# Remove Preview cards
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl preview_cards remove
-
-# make cron job for Remove Media files and Remove Preview cards
-cat <<make_job >>${work_dir}/auto-cleanup.sh 
-#!/bin/sh
-
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl media remove
-
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl preview_cards remove
-make_job
-
-# Give permission to crontab 
-sudo chmod +x ${work_dir}/auto-cleanup.sh
-
-echo "0 0 * * * ${work_dir}/auto-cleanup.sh" | crontab -
+# Approve the admin user
+echo "* Approving admin user"
+docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts approve ${admin_user}
 
 echo "Congratulations your setup is done"
 echo "Admin email:  ${admin_email}  and  password: ${admin_password}"
-echo "Database user:  ${db_user}  ,  password: ${db_password}  and name ${db_name}"
 echo "The Mastodon instance can be accessed on https://${domain_name}"
