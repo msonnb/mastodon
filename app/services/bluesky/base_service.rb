@@ -61,6 +61,31 @@ class Bluesky::BaseService < BaseService
     end
   end
 
+  def upload_blob(access_token, file_data, mime_type)
+    request = Request.new(
+      :post,
+      "#{@api_url}/com.atproto.repo.uploadBlob",
+      body: file_data
+    )
+
+    request.add_headers({
+      'Content-Type' => mime_type,
+      'User-Agent' => 'Mastodon/4.0.0',
+      'Authorization' => "Bearer #{access_token}",
+    })
+
+    request.perform do |response|
+      if response.status == 200
+        body = JSON.parse(response.body)
+        Rails.logger.info("Blob uploaded successfully, size: #{file_data.size} bytes")
+        return body['blob']
+      else
+        Rails.logger.error("Failed to upload blob: #{response.status} #{response.body}")
+        raise Mastodon::UnexpectedResponseError, response
+      end
+    end
+  end
+
   def make_api_request(method, endpoint, body: nil, headers: {}, auth_type: nil, auth_value: nil)
     request = Request.new(
       method,
