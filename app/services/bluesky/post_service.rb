@@ -6,6 +6,10 @@ class Bluesky::PostService < Bluesky::BaseService
     image/webp
     image/gif
   )).freeze
+  BLUESKY_SUPPORTED_VIDEO_TYPES = %w(
+    video/mp4
+  ).freeze
+  BLUESKY_MAX_VIDEO_SIZE = 50_000_000
 
   def call(status)
     @status = status
@@ -45,6 +49,9 @@ class Bluesky::PostService < Bluesky::BaseService
   def process_media_attachments
     media_attachments = @status.ordered_media_attachments
 
+    video_attachment = media_attachments.find(&:video?)
+    return process_video_attachment(video_attachment) if video_attachment
+
     image_attachments = media_attachments.select(&:image?).take(BLUESKY_IMAGE_LIMIT)
     other_media = media_attachments.reject(&:image?)
 
@@ -81,6 +88,49 @@ class Bluesky::PostService < Bluesky::BaseService
     create_image_embed(uploaded_blobs)
   end
 
+  def process_video_attachment(attachment)
+    if attachment.not_processed?
+      Rails.logger.warn("Video attachment #{attachment.id} still processing, skipping")
+      return nil
+    end
+
+    unless BLUESKY_SUPPORTED_VIDEO_TYPES.include?(attachment.file_content_type)
+      Rails.logger.warn("Unsupported video type #{attachment.file_content_type} for attachment #{attachment.id}, skipping")
+      return nil
+    end
+
+    video_file_data = get_file_data(
+      attachment.file,
+      local: attachment.local?,
+      id: attachment.id
+    )
+    unless video_file_data
+      Rails.logger.warn("Could not read video file data for attachment #{attachment.id}")
+      return nil
+    end
+
+    if video_file_data.size > BLUESKY_MAX_VIDEO_SIZE
+      Rails.logger.warn("Video attachment #{attachment.id} size #{video_file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_VIDEO_SIZE} bytes")
+      return nil
+    end
+
+    video_blob = upload_blob(@access_token, video_file_data, attachment.file_content_type)
+    alt_text = attachment.description.presence || ''
+    aspect_ratio = extract_aspect_ratio(attachment)
+
+    create_video_embed(video_blob, alt_text, aspect_ratio)
+  end
+
+  def create_video_embed(video_blob, alt_text, aspect_ratio)
+    embed = {
+      '$type' => 'app.bsky.embed.video',
+      'video' => video_blob,
+      'alt' => alt_text,
+    }
+    embed['aspectRatio'] = aspect_ratio if aspect_ratio
+    embed
+  end
+
   def upload_media_attachment(attachment)
     unless BLUESKY_MEDIA_SUPPORTED_IMAGE_TYPES.include?(attachment.file_content_type)
       Rails.logger.warn("Unsupported image type #{attachment.file_content_type} for attachment #{attachment.id}, skipping")
@@ -94,7 +144,7 @@ class Bluesky::PostService < Bluesky::BaseService
     )
     return nil unless file_data
 
-    unless file_size_valid?(file_data)
+    if file_data.size > BLUESKY_MAX_IMAGE_SIZE
       Rails.logger.warn("Media attachment #{attachment.id} size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes")
       return nil
     end
