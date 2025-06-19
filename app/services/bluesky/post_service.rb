@@ -2,13 +2,10 @@
 
 class Bluesky::PostService < Bluesky::BaseService
   BLUESKY_IMAGE_LIMIT = 4
-  BLUESKY_MAX_IMAGE_SIZE = 1_000_000 # 1MB in bytes
-  BLUESKY_SUPPORTED_IMAGE_TYPES = %w(
-    image/jpeg
-    image/png
+  BLUESKY_MEDIA_SUPPORTED_IMAGE_TYPES = (BLUESKY_SUPPORTED_IMAGE_TYPES + %w(
     image/webp
     image/gif
-  ).freeze
+  )).freeze
 
   def call(status)
     @status = status
@@ -85,13 +82,22 @@ class Bluesky::PostService < Bluesky::BaseService
   end
 
   def upload_media_attachment(attachment)
-    unless BLUESKY_SUPPORTED_IMAGE_TYPES.include?(attachment.file_content_type)
+    unless BLUESKY_MEDIA_SUPPORTED_IMAGE_TYPES.include?(attachment.file_content_type)
       Rails.logger.warn("Unsupported image type #{attachment.file_content_type} for attachment #{attachment.id}, skipping")
       return nil
     end
 
-    file_data = get_media_file_data(attachment)
+    file_data = get_file_data(
+      attachment.file,
+      local: attachment.local?,
+      id: attachment.id
+    )
     return nil unless file_data
+
+    unless file_size_valid?(file_data)
+      Rails.logger.warn("Media attachment #{attachment.id} size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes")
+      return nil
+    end
 
     blob = upload_blob(@access_token, file_data, attachment.file_content_type)
 
@@ -104,54 +110,6 @@ class Bluesky::PostService < Bluesky::BaseService
     embed_data[:aspectRatio] = aspect_ratio if aspect_ratio
 
     embed_data
-  end
-
-  def get_media_file_data(attachment)
-    return nil if attachment.file.blank?
-
-    file_data = nil
-
-    if attachment.local?
-      begin
-        file_data = if attachment.file.path.present? && File.exist?(attachment.file.path)
-                      File.read(attachment.file.path) # Try to read directly from the file system
-                    else
-                      attachment.file.read # Fallback to Paperclip's read method
-                    end
-      rescue Paperclip::Errors::NotAttachedError
-        Rails.logger.error("Media attachment #{attachment.id} file not found locally")
-        return nil
-      end
-    else
-      begin
-        url = attachment.file.url(:original)
-        request = Request.new(:get, url)
-        request.perform do |response|
-          if response.status.success?
-            file_data = response.body_with_limit(BLUESKY_MAX_IMAGE_SIZE * 2) # Allow some buffer for size check
-          else
-            Rails.logger.error("Failed to download remote media attachment #{attachment.id}: HTTP #{response.status}")
-            return nil
-          end
-        end
-      rescue Mastodon::LengthValidationError => e
-        Rails.logger.error("Remote media attachment #{attachment.id} too large: #{e.message}")
-        return nil
-      rescue => e
-        Rails.logger.error("Failed to download remote media attachment #{attachment.id}: #{e.message}")
-        return nil
-      end
-    end
-
-    if file_data && file_data.size > BLUESKY_MAX_IMAGE_SIZE
-      Rails.logger.warn("Media attachment #{attachment.id} size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes")
-      return nil
-    end
-
-    file_data
-  rescue => e
-    Rails.logger.error("Failed to get media file data for attachment #{attachment.id}: #{e.message}")
-    nil
   end
 
   def extract_aspect_ratio(attachment)

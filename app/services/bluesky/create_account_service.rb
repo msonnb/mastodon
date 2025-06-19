@@ -18,15 +18,38 @@ class Bluesky::CreateAccountService < Bluesky::BaseService
     )
 
     access_token = authenticate_user(@user)
+
+    profile_data = {
+      createdAt: Time.current.iso8601,
+      displayName: @user.account.display_name,
+      description: @user.account.note,
+    }
+
+    if @user.account.avatar.present?
+      begin
+        avatar_blob = upload_image(access_token, @user.account.avatar)
+        profile_data[:avatar] = avatar_blob if avatar_blob
+        Rails.logger.info("Avatar uploaded successfully for user #{@user.id}")
+      rescue => e
+        Rails.logger.warn("Failed to upload avatar for user #{@user.id}: #{e.message}")
+      end
+    end
+
+    if @user.account.header.present?
+      begin
+        banner_blob = upload_image(access_token, @user.account.header)
+        profile_data[:banner] = banner_blob if banner_blob
+        Rails.logger.info("Header/banner uploaded successfully for user #{@user.id}")
+      rescue => e
+        Rails.logger.warn("Failed to upload header/banner for user #{@user.id}: #{e.message}")
+      end
+    end
+
     data = {
       repo: did,
       collection: 'app.bsky.actor.profile',
       rkey: 'self',
-      record: {
-        createdAt: Time.current.iso8601,
-        displayName: @user.account.display_name,
-        description: @user.account.note,
-      },
+      record: profile_data,
     }
     create_record(access_token, data)
 
@@ -34,6 +57,27 @@ class Bluesky::CreateAccountService < Bluesky::BaseService
   end
 
   private
+
+  def upload_image(access_token, image_object)
+    unless supported_image_type?(image_object.content_type)
+      Rails.logger.warn("Unsupported image type #{image_object.content_type} for user #{@user.id}, skipping")
+      return nil
+    end
+
+    file_data = get_file_data(
+      image_object,
+      local: @user.account.local?,
+      id: @user.id
+    )
+    return nil unless file_data
+
+    unless file_size_valid?(file_data)
+      Rails.logger.warn("Image size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes for user #{@user.id}")
+      return nil
+    end
+
+    upload_blob(access_token, file_data, image_object.content_type)
+  end
 
   def create_invite_code
     admin_password = ENV.fetch('ATPROTO_PDS_ADMIN_PASS')

@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
 class Bluesky::BaseService < BaseService
+  BLUESKY_MAX_IMAGE_SIZE = 1_000_000 # 1MB in bytes
+  BLUESKY_SUPPORTED_IMAGE_TYPES = %w(
+    image/jpeg
+    image/png
+  ).freeze
+
   protected
 
   def initialize_api_url
@@ -111,5 +117,67 @@ class Bluesky::BaseService < BaseService
         raise Mastodon::UnexpectedResponseError, response
       end
     end
+  end
+
+  def supported_image_type?(content_type)
+    BLUESKY_SUPPORTED_IMAGE_TYPES.include?(content_type)
+  end
+
+  def file_size_valid?(file_data)
+    file_data && file_data.size <= BLUESKY_MAX_IMAGE_SIZE
+  end
+
+  def get_file_data(file_object, context_info = {})
+    return nil if file_object.blank?
+
+    is_local = context_info[:local] || (file_object.respond_to?(:local?) && file_object.local?)
+    object_id = context_info[:id] || (file_object.respond_to?(:id) ? file_object.id : 'unknown')
+
+    if is_local
+      get_local_file_data(file_object, object_id)
+    else
+      get_remote_file_data(file_object, object_id)
+    end
+  rescue => e
+    Rails.logger.error("Failed to get file data for #{object_id}: #{e.message}")
+    nil
+  end
+
+  private
+
+  def get_local_file_data(file_object, object_id)
+    file_path = file_object.respond_to?(:path) ? file_object.path : nil
+
+    if file_path.present? && File.exist?(file_path)
+      File.read(file_path)
+    elsif file_object.respond_to?(:read)
+      file_object.read
+    else
+      Rails.logger.error("Unable to read local file for #{object_id}")
+      nil
+    end
+  rescue Paperclip::Errors::NotAttachedError
+    Rails.logger.error("File not found locally for #{object_id}")
+    nil
+  end
+
+  def get_remote_file_data(file_object, object_id)
+    url = file_object.respond_to?(:url) ? file_object.url(:original) : file_object.to_s
+
+    request = Request.new(:get, url)
+    request.perform do |response|
+      if response.status.success?
+        response.body_with_limit(BLUESKY_MAX_IMAGE_SIZE * 2) # Allow buffer for size check
+      else
+        Rails.logger.error("Failed to download remote file for #{object_id}: HTTP #{response.status}")
+        nil
+      end
+    end
+  rescue Mastodon::LengthValidationError => e
+    Rails.logger.error("Remote file for #{object_id} too large: #{e.message}")
+    nil
+  rescue => e
+    Rails.logger.error("Failed to download remote file for #{object_id}: #{e.message}")
+    nil
   end
 end
