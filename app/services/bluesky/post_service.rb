@@ -25,8 +25,14 @@ class Bluesky::PostService < Bluesky::BaseService
       record: record,
     }
 
-    create_record(@access_token, data)
-    Rails.logger.info("Post created successfully on Bluesky for user #{@user.id}")
+    response = create_record(@access_token, data)
+
+    if response && response['uri']
+      @status.update_column(:bluesky_record_uri, response['uri'])
+      Rails.logger.info("Post created successfully on Bluesky for user #{@user.id}, URI: #{response['uri']}")
+    else
+      Rails.logger.warn("Post created on Bluesky for user #{@user.id} but no URI returned")
+    end
   end
 
   private

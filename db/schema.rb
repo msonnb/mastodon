@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_03_28_143936) do
+ActiveRecord::Schema[8.0].define(version: 2025_06_21_115434) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1080,6 +1080,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_03_28_143936) do
     t.boolean "trendable"
     t.bigint "ordered_media_attachment_ids", array: true
     t.datetime "fetched_replies_at"
+    t.string "bluesky_record_uri"
     t.index ["account_id", "id", "visibility", "updated_at"], name: "index_statuses_20190820", order: { id: :desc }, where: "(deleted_at IS NULL)"
     t.index ["account_id"], name: "index_statuses_on_account_id"
     t.index ["deleted_at"], name: "index_statuses_on_deleted_at", where: "(deleted_at IS NOT NULL)"
