@@ -11,6 +11,7 @@ class UpdateAccountService < BaseService
       authorize_all_follow_requests(account) if was_locked && !account.locked
       check_links(account)
       process_hashtags(account)
+      sync_bluesky_profile(account, params)
     end
   rescue Mastodon::DimensionsValidationError, Mastodon::StreamValidationError => e
     account.errors.add(:avatar, e.message)
@@ -35,5 +36,12 @@ class UpdateAccountService < BaseService
 
   def process_hashtags(account)
     account.tags_as_strings = Extractor.extract_hashtags(account.note)
+  end
+
+  def sync_bluesky_profile(account, params)
+    return unless account.local? && account.user&.bluesky_cross_posting_enabled?
+    return unless params.key?(:display_name) || params.key?(:note) || params.key?(:avatar) || params.key?(:header)
+
+    BlueskySyncProfileWorker.perform_async(account.user.id)
   end
 end
