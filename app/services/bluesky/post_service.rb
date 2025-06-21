@@ -54,6 +54,9 @@ class Bluesky::PostService < Bluesky::BaseService
     link_facets = detect_links(text)
     facets.concat(link_facets) if link_facets.any?
 
+    mention_facets = detect_mentions(text)
+    facets.concat(mention_facets) if mention_facets.any?
+
     facets
   end
 
@@ -113,6 +116,37 @@ class Bluesky::PostService < Bluesky::BaseService
           {
             '$type' => 'app.bsky.richtext.facet#link',
             :uri => "https://#{domain}",
+          },
+        ],
+      }
+    end
+
+    facets
+  end
+
+  def detect_mentions(text)
+    facets = []
+    mentioned_accounts_by_acct = @status.mentioned_accounts.index_by(&:acct)
+
+    text.scan(Account::MENTION_RE) do |match|
+      full_match = Regexp.last_match
+      username_with_domain = match[0]
+      mentioned_account = mentioned_accounts_by_acct[username_with_domain]
+      next unless mentioned_account
+
+      start_pos, end_pos = full_match.byteoffset(0)
+      profile_url = ActivityPub::TagManager.instance.url_for(mentioned_account)
+      next unless profile_url
+
+      facets << {
+        index: {
+          byteStart: start_pos,
+          byteEnd: end_pos,
+        },
+        features: [
+          {
+            '$type' => 'app.bsky.richtext.facet#link',
+            :uri => profile_url,
           },
         ],
       }
