@@ -38,12 +38,112 @@ class Bluesky::PostService < Bluesky::BaseService
       createdAt: @status.created_at.iso8601,
     }
 
+    facets = extract_facets(text)
+    record[:facets] = facets if facets&.any?
+
     if @status.with_media?
       embed = process_media_attachments
       record[:embed] = embed if embed
     end
 
     record
+  end
+
+  def extract_facets(text)
+    facets = []
+    link_facets = detect_links(text)
+    facets.concat(link_facets) if link_facets.any?
+
+    facets
+  end
+
+  def detect_links(text)
+    facets = []
+    matches = []
+    text.scan(URI::RFC2396_PARSER.make_regexp(['http', 'https'])) { matches << Regexp.last_match }
+
+    matches.each do |match|
+      start, stop = match.byteoffset(0)
+      url = match[0]
+
+      cleaned_url = clean_url(url)
+
+      next if cleaned_url.empty?
+
+      if cleaned_url != url
+        prefix = text[0...match.begin(0)]
+        start = prefix.encode('UTF-8').bytesize
+        stop = start + cleaned_url.encode('UTF-8').bytesize
+      end
+
+      facets << {
+        index: {
+          byteStart: start,
+          byteEnd: stop,
+        },
+        features: [
+          {
+            '$type' => 'app.bsky.richtext.facet#link',
+            :uri => cleaned_url,
+          },
+        ],
+      }
+    end
+
+    domain_matches = []
+    domain_regex = %r{(?<!\w|://)([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?=\s|$|[^\w\-.])}i
+
+    text.scan(domain_regex) { domain_matches << Regexp.last_match }
+
+    domain_matches.each do |match|
+      domain = match[0]
+
+      next if matches.any? { |http_match| http_match[0].include?(domain) }
+
+      next unless valid_domain?(domain)
+
+      start, stop = match.byteoffset(0)
+
+      facets << {
+        index: {
+          byteStart: start,
+          byteEnd: stop,
+        },
+        features: [
+          {
+            '$type' => 'app.bsky.richtext.facet#link',
+            :uri => "https://#{domain}",
+          },
+        ],
+      }
+    end
+
+    facets
+  end
+
+  def clean_url(url)
+    cleaned = url.gsub(/[.,;!?]+$/, '')
+    cleaned = cleaned[0...-1] if cleaned.end_with?(')') && !cleaned.include?('(')
+
+    cleaned
+  end
+
+  def prepare_uri(url)
+    if !url.match?(%r{^https?://}) && valid_domain?(url)
+      "https://#{url}"
+    else
+      url
+    end
+  end
+
+  def valid_domain?(domain_string)
+    return false unless domain_string.include?('.')
+
+    parts = domain_string.split('.')
+    return false if parts.length < 2
+
+    tld = parts.last.downcase
+    tld.match?(/^[a-z]{2,6}$/)
   end
 
   def process_media_attachments
