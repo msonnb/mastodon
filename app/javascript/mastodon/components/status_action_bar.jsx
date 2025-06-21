@@ -67,6 +67,7 @@ const messages = defineMessages({
   unblock: { id: 'account.unblock', defaultMessage: 'Unblock @{name}' },
   filter: { id: 'status.filter', defaultMessage: 'Filter this post' },
   openOriginalPage: { id: 'account.open_original_page', defaultMessage: 'Open original page' },
+  viewOnBluesky: { id: 'status.view_on_bluesky', defaultMessage: 'View on Bluesky' },
 });
 
 const mapStateToProps = (state, { status }) => ({
@@ -240,6 +241,28 @@ class StatusActionBar extends ImmutablePureComponent {
     navigator.clipboard.writeText(url);
   };
 
+  convertAtUriToBlueskyUrl = (atUri) => {
+    if (!atUri || !atUri.startsWith('at://')) {
+      return null;
+    }
+
+    // Parse AT URI: at://did:plc:example/app.bsky.feed.post/rkey
+    const regex = /^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/;
+    const match = atUri.match(regex);
+    
+    if (!match) {
+      return null;
+    }
+    
+    const [, did, collection, rkey] = match;
+    
+    if (collection !== 'app.bsky.feed.post') {
+      return null;
+    }
+    
+    return `https://bsky.app/profile/${did}/post/${rkey}`;
+  };
+
   render () {
     const { status, relationship, intl, withDismiss, withCounters, scrollKey } = this.props;
     const { signedIn, permissions } = this.props.identity;
@@ -250,6 +273,7 @@ class StatusActionBar extends ImmutablePureComponent {
     const account            = status.get('account');
     const writtenByMe        = status.getIn(['account', 'id']) === me;
     const isRemote           = status.getIn(['account', 'username']) !== status.getIn(['account', 'acct']);
+    const blueskyRecordUri   = status.get('bluesky_record_uri');
 
     let menu = [];
 
@@ -257,6 +281,13 @@ class StatusActionBar extends ImmutablePureComponent {
 
     if (publicStatus && isRemote) {
       menu.push({ text: intl.formatMessage(messages.openOriginalPage), href: status.get('url') });
+    }
+
+    if (blueskyRecordUri) {
+      const blueskyUrl = this.convertAtUriToBlueskyUrl(blueskyRecordUri);
+      if (blueskyUrl) {
+        menu.push({ text: intl.formatMessage(messages.viewOnBluesky), href: blueskyUrl });
+      }
     }
 
     menu.push({ text: intl.formatMessage(messages.copy), action: this.handleCopy });

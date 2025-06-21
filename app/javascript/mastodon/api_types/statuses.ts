@@ -96,6 +96,7 @@ export interface ApiStatusJSON {
   reblogs_count: number;
   favorites_count: number;
   edited_at?: string;
+  bluesky_record_uri?: string;
 
   favorited?: boolean;
   reblogged?: boolean;
