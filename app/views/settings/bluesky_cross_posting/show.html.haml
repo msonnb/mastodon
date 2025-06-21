@@ -7,6 +7,12 @@
 = simple_form_for current_user, url: settings_bluesky_cross_posting_path, html: { id: :edit_bluesky_cross_posting_enabled } do |f|
   = render 'shared/error_messages', object: current_user
 
+  - if current_user.bluesky_handle.present?
+    .fields-group
+      %p.hint
+        = t('settings.bluesky_profile_link_text')
+        = link_to "@#{current_user.bluesky_handle}", "https://bsky.app/profile/#{current_user.bluesky_handle}", class: 'table-action-link', target: '_blank', rel: 'noopener noreferrer'
+
   .fields-group
     = f.input :bluesky_cross_posting_enabled,
               as: :boolean,

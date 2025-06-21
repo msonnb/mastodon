@@ -1802,6 +1802,7 @@ en:
     authorized_apps: Authorized apps
     back: Back to Mastodon
     bluesky_cross_posting: Bluesky cross-posting
+    bluesky_profile_link_text: "Your Bluesky profile:"
     delete: Account deletion
     development: Development
     edit_profile: Edit profile
