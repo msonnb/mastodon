@@ -15,94 +15,70 @@ class Bluesky::BaseService < BaseService
   end
 
   def authenticate_user(user)
-    request = Request.new(
+    body = make_api_request(
       :post,
-      "#{@api_url}/com.atproto.server.createSession",
+      'com.atproto.server.createSession',
       body: {
         identifier: user.bluesky_handle,
         password: user.encrypted_bluesky_password,
-      }.to_json
+      }
     )
 
-    request.add_headers({
-      'Content-Type' => 'application/json',
-      'User-Agent' => 'Mastodon/4.0.0',
-    })
-
-    request.perform do |response|
-      if response.status == 200
-        body = JSON.parse(response.body)
-        access_token = body['accessJwt']
-        Rails.logger.info("Bluesky authentication successful for user #{user.id}")
-        return access_token
-      else
-        Rails.logger.error("Bluesky authentication failed: #{response.status} #{response.body}")
-        raise Mastodon::UnexpectedResponseError, response
-      end
-    end
+    access_token = body['accessJwt']
+    Rails.logger.info("Bluesky authentication successful for user #{user.id}")
+    access_token
   end
 
   def create_record(access_token, data)
-    request = Request.new(
+    body = make_api_request(
       :post,
-      "#{@api_url}/com.atproto.repo.createRecord",
-      body: data.to_json
+      'com.atproto.repo.createRecord',
+      body: data,
+      auth_type: 'Bearer',
+      auth_value: access_token
     )
 
-    request.add_headers({
-      'Content-Type' => 'application/json',
-      'User-Agent' => 'Mastodon/4.0.0',
-      'Authorization' => "Bearer #{access_token}",
-    })
-
-    request.perform do |response|
-      if response.status == 200
-        body = JSON.parse(response.body)
-        Rails.logger.info('Record created successfully')
-        return body
-      else
-        Rails.logger.error("Failed to create record: #{response.status} #{response.body}")
-        raise Mastodon::UnexpectedResponseError, response
-      end
-    end
+    Rails.logger.info('Record created successfully')
+    body
   end
 
   def upload_blob(access_token, file_data, mime_type)
-    request = Request.new(
+    body = make_api_request(
       :post,
-      "#{@api_url}/com.atproto.repo.uploadBlob",
-      body: file_data
+      'com.atproto.repo.uploadBlob',
+      body: file_data,
+      headers: { 'Content-Type' => mime_type },
+      auth_type: 'Bearer',
+      auth_value: access_token,
+      raw_body: true
     )
 
-    request.add_headers({
-      'Content-Type' => mime_type,
-      'User-Agent' => 'Mastodon/4.0.0',
-      'Authorization' => "Bearer #{access_token}",
-    })
-
-    request.perform do |response|
-      if response.status == 200
-        body = JSON.parse(response.body)
-        Rails.logger.info("Blob uploaded successfully, size: #{file_data.size} bytes")
-        return body['blob']
-      else
-        Rails.logger.error("Failed to upload blob: #{response.status} #{response.body}")
-        raise Mastodon::UnexpectedResponseError, response
-      end
-    end
+    Rails.logger.info("Blob uploaded successfully, size: #{file_data.size} bytes")
+    body['blob']
   end
 
-  def make_api_request(method, endpoint, body: nil, headers: {}, auth_type: nil, auth_value: nil)
+  def make_api_request(method, endpoint, body: nil, headers: {}, auth_type: nil, auth_value: nil, raw_body: false, query_params: nil)
+    url = "#{@api_url}/#{endpoint}"
+    url += "?#{query_params.to_query}" if query_params && method.to_s.downcase == 'get'
+
+    request_body = if raw_body
+                     body
+                   else
+                     body&.to_json
+                   end
+
     request = Request.new(
       method,
-      "#{@api_url}/#{endpoint}",
-      body: body&.to_json
+      url,
+      body: request_body
     )
 
     default_headers = {
-      'Content-Type' => 'application/json',
       'User-Agent' => 'Mastodon/4.0.0',
     }
+
+    # Only set Content-Type to JSON if not using raw_body and not overridden in headers
+    default_headers['Content-Type'] = 'application/json' unless raw_body || headers.key?('Content-Type')
 
     default_headers['Authorization'] = "#{auth_type} #{auth_value}" if auth_type && auth_value
 
@@ -110,8 +86,7 @@ class Bluesky::BaseService < BaseService
 
     request.perform do |response|
       if response.status == 200
-        body = JSON.parse(response.body)
-        return body
+        JSON.parse(response.body)
       else
         Rails.logger.error("API request failed: #{method} #{endpoint} - #{response.status} #{response.body}")
         raise Mastodon::UnexpectedResponseError, response
@@ -125,6 +100,27 @@ class Bluesky::BaseService < BaseService
 
   def file_size_valid?(file_data)
     file_data && file_data.size <= BLUESKY_MAX_IMAGE_SIZE
+  end
+
+  def upload_image(access_token, image_object)
+    unless supported_image_type?(image_object.content_type)
+      Rails.logger.warn("Unsupported image type #{image_object.content_type} for user #{@user.id}, skipping")
+      return nil
+    end
+
+    file_data = get_file_data(
+      image_object,
+      local: @user.account.local?,
+      id: @user.id
+    )
+    return nil unless file_data
+
+    unless file_size_valid?(file_data)
+      Rails.logger.warn("Image size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes for user #{@user.id}")
+      return nil
+    end
+
+    upload_blob(access_token, file_data, image_object.content_type)
   end
 
   def get_file_data(file_object, context_info = {})

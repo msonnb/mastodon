@@ -58,27 +58,6 @@ class Bluesky::CreateAccountService < Bluesky::BaseService
 
   private
 
-  def upload_image(access_token, image_object)
-    unless supported_image_type?(image_object.content_type)
-      Rails.logger.warn("Unsupported image type #{image_object.content_type} for user #{@user.id}, skipping")
-      return nil
-    end
-
-    file_data = get_file_data(
-      image_object,
-      local: @user.account.local?,
-      id: @user.id
-    )
-    return nil unless file_data
-
-    unless file_size_valid?(file_data)
-      Rails.logger.warn("Image size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes for user #{@user.id}")
-      return nil
-    end
-
-    upload_blob(access_token, file_data, image_object.content_type)
-  end
-
   def create_invite_code
     admin_password = ENV.fetch('ATPROTO_PDS_ADMIN_PASS')
     basic_auth = Base64.strict_encode64("admin:#{admin_password}")

@@ -45,29 +45,24 @@ class Bluesky::SyncProfileService < Bluesky::BaseService
       rkey: 'self',
     }
 
-    request = Request.new(
-      :get,
-      "#{@api_url}/com.atproto.repo.getRecord?#{params.to_query}"
-    )
+    begin
+      body = make_api_request(
+        :get,
+        'com.atproto.repo.getRecord',
+        query_params: params,
+        auth_type: 'Bearer',
+        auth_value: access_token
+      )
 
-    request.add_headers({
-      'User-Agent' => 'Mastodon/4.0.0',
-      'Authorization' => "Bearer #{access_token}",
-    })
-
-    request.perform do |response|
-      if response.status == 200
-        body = JSON.parse(response.body)
-        Rails.logger.info("Current Bluesky profile fetched successfully for user #{@user.id}")
-        return body['value']
-      else
-        Rails.logger.error("Failed to fetch current Bluesky profile: #{response.status} #{response.body}")
-        return nil
-      end
+      Rails.logger.info("Current Bluesky profile fetched successfully for user #{@user.id}")
+      body['value']
+    rescue Mastodon::UnexpectedResponseError => e
+      Rails.logger.error("Failed to fetch current Bluesky profile: #{e.response.status} #{e.response.body}")
+      nil
+    rescue => e
+      Rails.logger.error("Error fetching current Bluesky profile for user #{@user.id}: #{e.message}")
+      nil
     end
-  rescue => e
-    Rails.logger.error("Error fetching current Bluesky profile for user #{@user.id}: #{e.message}")
-    nil
   end
 
   def build_updated_profile(current_profile)
@@ -129,27 +124,16 @@ class Bluesky::SyncProfileService < Bluesky::BaseService
       record: profile_data,
     }
 
-    request = Request.new(
+    make_api_request(
       :post,
-      "#{@api_url}/com.atproto.repo.putRecord",
-      body: data.to_json
+      'com.atproto.repo.putRecord',
+      body: data,
+      auth_type: 'Bearer',
+      auth_value: access_token
     )
 
-    request.add_headers({
-      'Content-Type' => 'application/json',
-      'User-Agent' => 'Mastodon/4.0.0',
-      'Authorization' => "Bearer #{access_token}",
-    })
-
-    request.perform do |response|
-      if response.status == 200
-        Rails.logger.info("Bluesky profile updated successfully for user #{@user.id}")
-        return true
-      else
-        Rails.logger.error("Failed to update Bluesky profile: #{response.status} #{response.body}")
-        raise Mastodon::UnexpectedResponseError, response
-      end
-    end
+    Rails.logger.info("Bluesky profile updated successfully for user #{@user.id}")
+    true
   end
 
   def should_upload_avatar?(current_profile)
@@ -164,26 +148,5 @@ class Bluesky::SyncProfileService < Bluesky::BaseService
 
     @user.account.header_updated_at.present? &&
       @user.account.header_updated_at > 1.hour.ago
-  end
-
-  def upload_image(access_token, image_object)
-    unless supported_image_type?(image_object.content_type)
-      Rails.logger.warn("Unsupported image type #{image_object.content_type} for user #{@user.id}, skipping")
-      return nil
-    end
-
-    file_data = get_file_data(
-      image_object,
-      local: @user.account.local?,
-      id: @user.id
-    )
-    return nil unless file_data
-
-    unless file_size_valid?(file_data)
-      Rails.logger.warn("Image size #{file_data.size} bytes exceeds Bluesky limit of #{BLUESKY_MAX_IMAGE_SIZE} bytes for user #{@user.id}")
-      return nil
-    end
-
-    upload_blob(access_token, file_data, image_object.content_type)
   end
 end

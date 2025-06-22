@@ -44,27 +44,16 @@ class Bluesky::DeleteService < Bluesky::BaseService
       rkey: uri_parts[:rkey],
     }
 
-    request = Request.new(
+    make_api_request(
       :post,
-      "#{@api_url}/com.atproto.repo.deleteRecord",
-      body: data.to_json
+      'com.atproto.repo.deleteRecord',
+      body: data,
+      auth_type: 'Bearer',
+      auth_value: access_token
     )
 
-    request.add_headers({
-      'Content-Type' => 'application/json',
-      'User-Agent' => 'Mastodon/4.0.0',
-      'Authorization' => "Bearer #{access_token}",
-    })
-
-    request.perform do |response|
-      if response.status == 200
-        Rails.logger.info('Bluesky record deleted successfully')
-        return true
-      else
-        Rails.logger.error("Failed to delete Bluesky record: #{response.status} #{response.body}")
-        raise Mastodon::UnexpectedResponseError, response
-      end
-    end
+    Rails.logger.info('Bluesky record deleted successfully')
+    true
   end
 
   def parse_at_uri(uri)
