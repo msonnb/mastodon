@@ -1,103 +1,78 @@
-> [!NOTE]
-> Want to learn more about Mastodon?
-> Click below to find out more in a video.
+# Mastodon + Bluesky Cross-Posting Fork
 
-<p align="center">
-  <a style="text-decoration:none" href="https://www.youtube.com/watch?v=IPSbNdBmWKE">
-    <img alt="Mastodon hero image" src="https://github.com/user-attachments/assets/ef53f5e9-c0d8-484d-9f53-00efdebb92c3" />
-  </a>
-</p>
-
-<p align="center">
-  <a style="text-decoration:none" href="https://github.com/mastodon/mastodon/releases">
-    <img src="https://img.shields.io/github/release/mastodon/mastodon.svg" alt="Release" /></a>
-  <a style="text-decoration:none" href="https://github.com/mastodon/mastodon/actions/workflows/test-ruby.yml">
-    <img src="https://github.com/mastodon/mastodon/actions/workflows/test-ruby.yml/badge.svg" alt="Ruby Testing" /></a>
-  <a style="text-decoration:none" href="https://crowdin.com/project/mastodon">
-    <img src="https://d322cqt584bo4o.cloudfront.net/mastodon/localized.svg" alt="Crowdin" /></a>
-</p>
-
-Mastodon is a **free, open-source social network server** based on ActivityPub where users can follow friends and discover new ones. On Mastodon, users can publish anything they want: links, pictures, text, and video. All Mastodon servers are interoperable as a federated network (users on one server can seamlessly communicate with users from another one, including non-Mastodon software that implements ActivityPub!)
-
-## Navigation
-
-- [Project homepage 🐘](https://joinmastodon.org)
-- [Support the development via Patreon][patreon]
-- [View sponsors](https://joinmastodon.org/sponsors)
-- [Blog](https://blog.joinmastodon.org)
-- [Documentation](https://docs.joinmastodon.org)
-- [Roadmap](https://joinmastodon.org/roadmap)
-- [Official Docker image](https://github.com/mastodon/mastodon/pkgs/container/mastodon)
-- [Browse Mastodon servers](https://joinmastodon.org/communities)
-- [Browse Mastodon apps](https://joinmastodon.org/apps)
-
-[patreon]: https://www.patreon.com/mastodon
+This is a fork of [Mastodon](https://github.com/mastodon/mastodon) that adds automatic cross-posting to Bluesky's ATProtocol network.
 
 ## Features
 
-<img src="/app/javascript/images/elephant_ui_working.svg?raw=true" align="right" width="30%" />
+**All original Mastodon features**
 
-**No vendor lock-in: Fully interoperable with any conforming platform** - It doesn't have to be Mastodon; whatever implements ActivityPub is part of the social network! [Learn more](https://blog.joinmastodon.org/2018/06/why-activitypub-is-the-future/)
+- This fork maintains full compatibility with upstream Mastodon while adding:
 
-**Real-time, chronological timeline updates** - updates of people you're following appear in real-time in the UI via WebSockets. There's a firehose view as well!
+**Automatic Bluesky Cross-Posting**
 
-**Media attachments like images and short videos** - upload and view images and WebM/MP4 videos attached to the updates. Videos with no audio track are treated like GIFs; normal videos loop continuously!
+- Posts from Mastodon automatically appear on Bluesky
+- Cross-posts public statuses (excludes replies and boosts)
+- Supports text, media, links and mentions
+- Status deletions on Mastodon remove posts from Bluesky
+- Per-user settings to enable/disable cross-posting
+- Mastodon profile (display name, bio, profile picture and banner) syncs with Bluesky
 
-**Safety and moderation tools** - Mastodon includes private posts, locked accounts, phrase filtering, muting, blocking, and all sorts of other features, along with a reporting and moderation system. [Learn more](https://blog.joinmastodon.org/2018/07/cage-the-mastodon/)
+**Unified Installation**
 
-**OAuth2 and a straightforward REST API** - Mastodon acts as an OAuth2 provider, so 3rd party apps can use the REST and Streaming APIs. This results in a rich app ecosystem with a lot of choices!
+- One-command setup for both Mastodon and Bluesky PDS (Personal Data Server)
+- Combined Docker environment
+- Automatic SSL certificate management via Caddy
 
-## Deployment
+## Quick Installation
 
-### Tech stack
+Run the combined installer as root on a fresh Ubuntu/Debian server:
 
-- **Ruby on Rails** powers the REST API and other web pages
-- **React.js** and **Redux** are used for the dynamic parts of the interface
-- **Node.js** powers the streaming API
+```bash
+curl https://raw.githubusercontent.com/msonnb/mastodon/main/dist/installer.sh > installer.sh
+sudo bash installer.sh
+```
 
-### Requirements
+**Requirements:**
 
-- **PostgreSQL** 12+
-- **Redis** 4+
-- **Ruby** 3.2+
-- **Node.js** 18+
+- Fresh Ubuntu 20/22 or Debian 11/12 server
+- Domain name(s) with DNS pointing to your server:
+  - Can use the same domain for both services (e.g., `example.social`) to keep your handle consistent
+    - Mastodon: `@alice@example.social` / Bluesky: `@alice.example.social`
+  - Or separate (sub)domains: Mastodon (e.g., `example.social`) + Bluesky PDS (e.g., `pds.example.social`)
+    - Mastodon: `alice@example.social` / Bluesky: `@alice.pds.example.social`
+- SMTP server credentials for email notifications
+- Ports 80 and 443 accessible from the internet
 
-The repository includes deployment configurations for **Docker and docker-compose** as well as specific platforms like **Heroku**, and **Scalingo**. For Helm charts, reference the [mastodon/chart repository](https://github.com/mastodon/chart). The [**standalone** installation guide](https://docs.joinmastodon.org/admin/install/) is available in the documentation.
+The installer will:
+
+1. Install Docker and system dependencies
+2. Set up Bluesky Personal Data Server
+3. Set up Mastodon with cross-posting enabled
+4. Configure automatic SSL certificates
+5. Create systemd services for both platforms
+
+## Post-Installation Setup
+
+1. **Log in to Mastodon**: Use the admin credentials provided by the installer
+2. **Enable Cross-Posting**: In Mastodon settings, go to "Account > Bluesky Cross-Posting" and enable it
+   - A Bluesky account is automatically created for you when enabled
+   - Your Bluesky handle will match your Mastodon username
+
+## Cross-Posting Behavior
+
+- ✅ **Cross-posted**: Public posts with text and/or images
+- ❌ **Not cross-posted**: Replies, boosts/reblogs, private/unlisted posts, polls
+
+## Navigation
+
+- [Original Mastodon Repository](https://github.com/mastodon/mastodon)
+- [Mastodon Documentation](https://docs.joinmastodon.org)
+- [Bluesky ATProtocol](https://atproto.com)
 
 ## Contributing
 
-Mastodon is **free, open-source software** licensed under **AGPLv3**.
-
-You can open issues for bugs you've found or features you think are missing. You
-can also submit pull requests to this repository or translations via Crowdin. To
-get started, look at the [CONTRIBUTING] and [DEVELOPMENT] guides. For changes
-accepted into Mastodon, you can request to be paid through our [OpenCollective].
-
-**IRC channel**: #mastodon on [`irc.libera.chat`](https://libera.chat)
+This fork tracks upstream Mastodon releases. Bluesky-specific improvements welcome via pull requests.
 
 ## License
 
-Copyright (c) 2016-2024 Eugen Rochko (+ [`mastodon authors`](AUTHORS.md))
-
-Licensed under GNU Affero General Public License as stated in the [LICENSE](LICENSE):
-
-```
-Copyright (c) 2016-2024 Eugen Rochko & other Mastodon contributors
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
-details.
-
-You should have received a copy of the GNU Affero General Public License along
-with this program. If not, see https://www.gnu.org/licenses/
-```
-
-[CONTRIBUTING]: CONTRIBUTING.md
-[DEVELOPMENT]: docs/DEVELOPMENT.md
-[OpenCollective]: https://opencollective.com/mastodon
+Licensed under GNU Affero General Public License v3.0 - see [LICENSE](LICENSE) file.
