@@ -15,7 +15,6 @@ This is a fork of [Mastodon](https://github.com/mastodon/mastodon) that adds aut
 - Supports text, media, links and mentions
 - Status deletions on Mastodon remove posts from Bluesky
 - Per-user settings to enable/disable cross-posting
-- Mastodon profile (display name, bio, profile picture and banner) syncs with Bluesky
 
 **Unified Installation**
 
