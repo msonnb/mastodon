@@ -112,6 +112,34 @@ if [[ "${SUPPORTED_OS}" != "true" ]]; then
 	exit 1
 fi
 
+cat <<WELCOME_MESSAGE
+========================================================================
+Welcome to the Combined Bluesky PDS + Mastodon Installer
+========================================================================
+
+This installer will set up both services on your server:
+
+🦋 Bluesky Personal Data Server (PDS)
+🐘 Mastodon Social Media Server
+
+What this installer will do:
+------------------------------------------------------------------------
+✓ Install Docker and required system dependencies
+✓ Set up Bluesky PDS
+✓ Set up Mastodon
+✓ Create systemd services for both platforms
+
+Requirements:
+------------------------------------------------------------------------
+• Root access (you're running with sudo ✓)
+• Valid domain names with DNS pointing to this server
+• SMTP server credentials for email notifications
+• Ports 80 and 443 accessible from the internet
+
+========================================================================
+
+WELCOME_MESSAGE
+
 # Enforce that the data directory is /pds since we're assuming it for now.
 # Later we can make this actually configurable.
 if [[ "${PDS_DATADIR}" != "/pds" ]]; then
@@ -174,35 +202,7 @@ fi
 # Prompt user for required variables.
 #
 if [[ -z "${PDS_HOSTNAME}" ]]; then
-	cat <<INSTALLER_MESSAGE
----------------------------------------
-		Add DNS Record for Public IP
----------------------------------------
-
-From your DNS provider's control panel, create the required
-DNS record with the value of your server's public IP address.
-
-+ Any DNS name that can be resolved on the public internet will work.
-+ Replace example.com below with any valid domain name you control.
-+ A TTL of 600 seconds (10 minutes) is recommended.
-
-Example DNS record:
-
-	NAME                TYPE   VALUE
-	----                ----   -----
-	example.com         A      ${PUBLIC_IP:-Server public IP}
-	*.example.com       A      ${PUBLIC_IP:-Server public IP}
-
-**IMPORTANT**
-It's recommended to wait 3-5 minutes after creating a new DNS record
-before attempting to use it. This will allow time for the DNS record
-to be fully updated.
-
-INSTALLER_MESSAGE
-
-	if [[ -z "${PDS_HOSTNAME}" ]]; then
-		read -p "Enter your public DNS address (e.g. example.com): " PDS_HOSTNAME
-	fi
+	read -p "[PDS] Enter your public DNS address (e.g. example.com): " PDS_HOSTNAME
 fi
 
 if [[ -z "${PDS_HOSTNAME}" ]]; then
@@ -215,7 +215,7 @@ fi
 
 # Admin email
 if [[ -z "${PDS_ADMIN_EMAIL}" ]]; then
-	read -p "Enter an admin email address (e.g. you@example.com): " PDS_ADMIN_EMAIL
+	read -p "[PDS] Enter an admin email address (e.g. you@example.com): " PDS_ADMIN_EMAIL
 fi
 if [[ -z "${PDS_ADMIN_EMAIL}" ]]; then
 	usage "No admin email specified"
@@ -419,42 +419,24 @@ curl \
 	"${PDSADMIN_URL}"
 chmod +x /usr/local/bin/pdsadmin
 
-cat <<INSTALLER_MESSAGE
-========================================================================
-PDS installation successful!
-------------------------------------------------------------------------
-
-Check service status      : sudo systemctl status pds
-Watch service logs        : sudo docker logs -f pds
-Backup service data       : ${PDS_DATADIR}
-PDS Admin command         : pdsadmin
-
-Required Firewall Ports
-------------------------------------------------------------------------
-Service                Direction  Port   Protocol  Source
--------                ---------  ----   --------  ----------------------
-HTTP TLS verification  Inbound    80     TCP       Any
-HTTP Control Panel     Inbound    443    TCP       Any
-
-Required DNS entries
-------------------------------------------------------------------------
-Name                         Type       Value
--------                      ---------  ---------------
-${PDS_HOSTNAME}              A          ${PUBLIC_IP}
-*.${PDS_HOSTNAME}            A          ${PUBLIC_IP}
-
-Detected public IP of this server: ${PUBLIC_IP}
-
-To see pdsadmin commands, run "pdsadmin help"
-
-========================================================================
-INSTALLER_MESSAGE
-
 
 # MASTODON INSTALLER
 
-COMPOSE_URL="https://raw.githubusercontent.com/msonnberger/mastodon/refs/heads/main/docker-compose.yml"
-NGINX_CONFIG_URL="https://raw.githubusercontent.com/msonnberger/mastodon/refs/heads/main/dist/nginx.conf"
+#
+# Create dedicated mastodon user for security
+#
+echo "* Creating mastodon user for secure installation"
+if ! id mastodon >/dev/null 2>&1; then
+	useradd --create-home --shell /bin/bash --groups docker mastodon
+	echo "* Created mastodon user and added to docker group"
+else
+	echo "* mastodon user already exists"
+	# Ensure user is in docker group
+	usermod -a -G docker mastodon
+fi
+
+COMPOSE_URL="https://raw.githubusercontent.com/msonnb/mastodon/refs/heads/main/docker-compose.yml"
+NGINX_CONFIG_URL="https://raw.githubusercontent.com/msonnb/mastodon/refs/heads/main/dist/nginx.conf"
 
 function prompt_for_input {
   local prompt="$1"
@@ -475,41 +457,45 @@ function prompt_for_input {
   done
 }
 
-prompt_for_input "Enter admin user name: " admin_user "Admin name cannot be empty. Please enter admin name."
-prompt_for_input "Enter admin email: " admin_email "Admin email cannot be empty. Please enter admin email."
-prompt_for_input "Enter valid domain name: " domain_name "Domain cannot be empty. Please enter domain."
-prompt_for_input "Enter SMTP SERVER: " smtp_server "SMTP SERVER cannot be empty. Please enter smtp server."
-prompt_for_input "Enter SMTP PORT: " smtp_port "SMTP PORT cannot be empty. Please enter smtp port."
-prompt_for_input "Enter SMTP LOGIN: " smtp_login "SMTP LOGIN cannot be empty. Please enter smtp_login."
-prompt_for_input "Enter SMTP_PASSWORD: " smtp_password "SMTP_PASSWORD cannot be empty. Please enter smtp password."
-prompt_for_input "Enter SMTP FROM ADDRESS: " smtp_from_address "SMTP FROM ADDRESS cannot be empty. Please enter smtp from address."
+prompt_for_input "[Mastodon] Enter admin user name: " admin_user "Admin name cannot be empty. Please enter admin name."
+prompt_for_input "[Mastodon] Enter admin email: " admin_email "Admin email cannot be empty. Please enter admin email."
+prompt_for_input "[Mastodon] Enter valid domain name: " domain_name "Domain cannot be empty. Please enter domain."
+prompt_for_input "[Mastodon] Enter SMTP SERVER: " smtp_server "SMTP SERVER cannot be empty. Please enter smtp server."
+prompt_for_input "[Mastodon] Enter SMTP PORT: " smtp_port "SMTP PORT cannot be empty. Please enter smtp port."
+prompt_for_input "[Mastodon] Enter SMTP LOGIN: " smtp_login "SMTP LOGIN cannot be empty. Please enter smtp_login."
+prompt_for_input "[Mastodon] Enter SMTP_PASSWORD: " smtp_password "SMTP_PASSWORD cannot be empty. Please enter smtp password."
+prompt_for_input "[Mastodon] Enter SMTP FROM ADDRESS: " smtp_from_address "SMTP FROM ADDRESS cannot be empty. Please enter smtp from address."
 
-# assign work directory
-work_dir=~/mastodon
-# Remove old work directory if present
+work_dir=/home/mastodon/mastodon
+
+echo "* Setting up Mastodon work directory"
 sudo rm -rf ${work_dir}
-# Make new work directory
-mkdir ${work_dir}
+sudo -u mastodon mkdir -p ${work_dir}
 
-# create blank a enviromental files for Mastodon
-touch ${work_dir}/.env.production
+echo "* Creating Mastodon environment file"
+sudo -u mastodon touch ${work_dir}/.env.production
+chmod 600 ${work_dir}/.env.production
 
 echo "* Downloading docker-compose.yml file"
-curl \
+sudo -u mastodon curl \
 	--silent \
 	--show-error \
 	--fail \
 	--output ${work_dir}/docker-compose.yml \
 	"${COMPOSE_URL}"
 
+sudo -u mastodon mkdir -p ${work_dir}/public/system
+sudo chown -R 991:991 ${work_dir}/public/system
+sudo chmod -R 755 ${work_dir}/public/system
+
 echo "* Generating secret keys"
-secret1=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
-secret2=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
-active_record_encryption_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/rails db:encryption:init | tail -n 3)
-vapid_keys=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake mastodon:webpush:generate_vapid_key)
+secret1=$(sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
+secret2=$(sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails secret)
+active_record_encryption_keys=$(sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/rails db:encryption:init | tail -n 3)
+vapid_keys=$(sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rake mastodon:webpush:generate_vapid_key)
 
 echo "* Creating .env.production file"
-cat <<mastodon_env >> ${work_dir}/.env.production
+sudo -u mastodon cat <<mastodon_env >> ${work_dir}/.env.production
 LOCAL_DOMAIN=${domain_name}
 REDIS_HOST=redis
 REDIS_PORT=6379
@@ -542,29 +528,30 @@ SESSION_RETENTION_PERIOD=31556952
 RAIL_LOG_LEVEL=warn
 ATPROTO_PDS_DOMAIN=${PDS_HOSTNAME}
 ATPROTO_PDS_ADMIN_PASS=${PDS_ADMIN_PASSWORD}
+GITHUB_REPOSITORY=msonnb/mastodon
 mastodon_env
 
+# Ensure proper permissions on the environment file
+chmod 600 ${work_dir}/.env.production
+
 echo "* Setting up database"
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails db:setup
+sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bundle exec rails db:setup
 
 echo "* Starting Mastodon application"
-docker compose -f ${work_dir}/docker-compose.yml up -d
-
-# Setting up nginx 
+sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml up -d
 
 if nginx -v &>/dev/null; then
-  echo "* Nginx is already install installed"
-  rm /etc/nginx/sites-available/mastodon
-  rm /etc/nginx/sites-enabled/mastodon
+  echo "* Nginx is already installed"
+  rm -f /etc/nginx/sites-available/mastodon
+  rm -f /etc/nginx/sites-enabled/mastodon
 else
 	echo "* Installing Nginx"
-  sudo apt-get update
-  sudo apt-get install -y nginx
+  apt-get update
+  apt-get install -y nginx
 fi
 
 rm -f /etc/nginx/sites-enabled/default
 
-# Download the nginx file for the application 
 echo "* Downloading Nginx configuration file"
 curl \
 	--silent \
@@ -573,20 +560,99 @@ curl \
 	--output /etc/nginx/sites-available/mastodon \
 	"${NGINX_CONFIG_URL}"
 
-#  Link to sites-enabled to enable the virtual host.
-sudo ln -s /etc/nginx/sites-available/mastodon /etc/nginx/sites-enabled/
+chmod 644 /etc/nginx/sites-available/mastodon
 
-#  Reload the nginx service.
-sudo systemctl restart nginx
+ln -s /etc/nginx/sites-available/mastodon /etc/nginx/sites-enabled/
 
-# Generate Admin password
+systemctl restart nginx
+
 echo "* Creating admin user"
-admin_password=$(docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts create ${admin_user} --email ${admin_email} --confirmed --role Owner | awk '/password:/{print }')
+admin_password=$(sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts create ${admin_user} --email ${admin_email} --confirmed --role Owner | awk '/password:/{print }')
 
-# Approve the admin user
 echo "* Approving admin user"
-docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts approve ${admin_user}
+sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml run --rm web bin/tootctl accounts approve ${admin_user}
 
-echo "Congratulations your setup is done"
-echo "Admin email:  ${admin_email}  and  password: ${admin_password}"
-echo "The Mastodon instance can be accessed on https://${domain_name}"
+echo "* Creating Mastodon systemd service"
+cat <<MASTODON_SYSTEMD_UNIT_FILE >/etc/systemd/system/mastodon.service
+[Unit]
+Description=Mastodon Social Media Service
+Documentation=https://github.com/msonnb/mastodon
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=mastodon
+Group=mastodon
+WorkingDirectory=${work_dir}
+ExecStart=/usr/bin/docker compose --file ${work_dir}/docker-compose.yml up --detach
+ExecStop=/usr/bin/docker compose --file ${work_dir}/docker-compose.yml down
+
+[Install]
+WantedBy=default.target
+MASTODON_SYSTEMD_UNIT_FILE
+
+systemctl daemon-reload
+systemctl enable mastodon
+
+cat <<INSTALLER_MESSAGE
+========================================================================
+Installation completed successfully!
+========================================================================
+
+PDS and Mastodon services have been installed and configured.
+
+Service Management
+------------------------------------------------------------------------
+PDS Service (running as root):
+  Status: sudo systemctl status pds
+  Logs:   sudo docker logs -f pds
+  Data:   ${PDS_DATADIR}
+
+Mastodon Service (running as mastodon user):
+  Status: sudo systemctl status mastodon
+  Logs:   sudo -u mastodon docker compose -f ${work_dir}/docker-compose.yml logs -f
+  Data:   ${work_dir}
+
+Access Information
+------------------------------------------------------------------------
+Mastodon Web Interface: https://${domain_name}
+PDS Server:            https://${PDS_HOSTNAME}
+
+Mastodon Admin Credentials:
+  Email:    ${admin_email}
+  Password: ${admin_password}
+
+Administrative Commands
+------------------------------------------------------------------------
+PDS Admin:             pdsadmin help
+Backup PDS data:       ${PDS_DATADIR}
+Backup Mastodon data:  ${work_dir}
+
+Required Firewall Ports
+------------------------------------------------------------------------
+Service                Direction  Port   Protocol  Source
+-------                ---------  ----   --------  ----------------------
+HTTP TLS verification  Inbound    80     TCP       Any
+HTTPS Web Interface    Inbound    443    TCP       Any
+
+Required DNS Entries
+------------------------------------------------------------------------
+Name                         Type       Value
+-------                      ---------  ---------------
+${PDS_HOSTNAME}              A          ${PUBLIC_IP}
+*.${PDS_HOSTNAME}            A          ${PUBLIC_IP}
+${domain_name}               A          ${PUBLIC_IP}
+
+Detected public IP of this server: ${PUBLIC_IP}
+
+Next Steps
+------------------------------------------------------------------------
+1. Verify DNS records are propagated (may take 3-5 minutes)
+2. Access Mastodon at https://${domain_name} and log in with admin credentials
+3. Configure Mastodon settings as needed
+4. Test PDS functionality with pdsadmin commands
+
+========================================================================
+INSTALLER_MESSAGE
